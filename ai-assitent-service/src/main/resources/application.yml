@@ -1,0 +1,51 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: ai-assistant-service
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+  ai:
+    model:
+      chat: openai
+      embedding: transformers
+      image: none
+      moderation: none
+      audio:
+        speech: none
+        transcription: none
+    openai:
+      # Groq is OpenAI compatible: final URL = https://api.groq.com/openai/v1/chat/completions
+      base-url: https://api.groq.com/openai
+      api-key: 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
+      chat:
+        options:
+          model: openai/gpt-oss-120b
+          temperature: 0.2
+    embedding:
+      transformer:
+        cache:
+          directory: ./data/onnx-cache
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+travel:
+  services:
+    flight-url: http://flight-service
+    hotel-url: http://hotel-service
+  rag:
+    top-k: 4
+    similarity-threshold: 0.3
+    store-file: ./data/vector-store.json
+
+logging:
+  level:
+    org.springframework.ai.chat.client.advisor: DEBUG

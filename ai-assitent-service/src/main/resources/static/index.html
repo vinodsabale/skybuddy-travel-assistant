@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SkyBuddy - Travel Assistant</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, sans-serif; background: #eef2f7; display: flex; justify-content: center; }
+        .app { width: 100%; max-width: 760px; height: 100vh; display: flex; flex-direction: column; background: #fff; }
+        header { padding: 14px 18px; background: #0b5ed7; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+        header h1 { font-size: 18px; margin: 0; }
+        header button, header label { font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 0; cursor: pointer; background: #fff; color: #0b5ed7; margin-left: 6px; }
+        #messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+        .msg { max-width: 80%; padding: 10px 14px; border-radius: 14px; white-space: pre-wrap; line-height: 1.4; }
+        .user { align-self: flex-end; background: #0b5ed7; color: #fff; }
+        .bot { align-self: flex-start; background: #e9edf3; color: #1d2733; }
+        form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #dde3ea; }
+        input[type=text] { flex: 1; padding: 12px; border: 1px solid #c9d1db; border-radius: 8px; font-size: 14px; }
+        form button { padding: 0 20px; border: 0; border-radius: 8px; background: #0b5ed7; color: #fff; font-size: 14px; cursor: pointer; }
+        form button:disabled { background: #8fb2ea; cursor: wait; }
+    </style>
+</head>
+<body>
+<div class="app">
+    <header>
+        <h1>SkyBuddy - Travel Assistant</h1>
+        <div>
+            <label>Upload policy<input type="file" id="docFile" hidden></label>
+            <button type="button" id="newChat">New chat</button>
+        </div>
+    </header>
+    <div id="messages">
+        <div class="msg bot">Hi! I can search flights, book or cancel tickets, find hotels, check weather and answer policy questions. Try: "Mumbai to Goa flights tomorrow".</div>
+    </div>
+    <form id="chatForm">
+        <input type="text" id="input" placeholder="Type your message..." autocomplete="off" required>
+        <button type="submit" id="sendBtn">Send</button>
+    </form>
+</div>
+
+<script>
+    const messages = document.getElementById('messages');
+    const form = document.getElementById('chatForm');
+    const input = document.getElementById('input');
+    const sendBtn = document.getElementById('sendBtn');
+    let conversationId = null;
+
+    function addMessage(text, type) {
+        const div = document.createElement('div');
+        div.className = 'msg ' + type;
+        div.textContent = text;
+        messages.appendChild(div);
+        messages.scrollTop = messages.scrollHeight;
+        return div;
+    }
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const text = input.value.trim();
+        if (!text) return;
+
+        addMessage(text, 'user');
+        input.value = '';
+        sendBtn.disabled = true;
+        const pending = addMessage('...', 'bot');
+
+        try {
+            const response = await fetch('/api/ai/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ conversationId: conversationId, message: text })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                pending.textContent = data.message || 'Something went wrong';
+            } else {
+                conversationId = data.conversationId;
+                pending.textContent = data.reply;
+            }
+        } catch (error) {
+            pending.textContent = 'Could not reach the server.';
+        } finally {
+            sendBtn.disabled = false;
+            input.focus();
+        }
+    });
+
+    document.getElementById('newChat').addEventListener('click', () => {
+        conversationId = null;
+        messages.innerHTML = '';
+        addMessage('New conversation started. How can I help?', 'bot');
+    });
+
+    document.getElementById('docFile').addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        const data = new FormData();
+        data.append('file', file);
+        const note = addMessage('Uploading ' + file.name + ' ...', 'bot');
+        try {
+            const response = await fetch('/api/ai/documents', { method: 'POST', body: data });
+            const result = await response.json();
+            note.textContent = response.ok
+                ? file.name + ' uploaded (' + result.chunksStored + ' chunks stored).'
+                : (result.message || 'Upload failed');
+        } catch (error) {
+            note.textContent = 'Upload failed.';
+        }
+        event.target.value = '';
+    });
+</script>
+</body>
+</html>
